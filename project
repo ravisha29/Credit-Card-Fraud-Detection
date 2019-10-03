@@ -1,0 +1,168 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr 13 01:04:42 2019
+
+@author: Home PC
+"""
+
+import pandas as pd
+from imblearn.over_sampling import SMOTE
+from sklearn import preprocessing
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import roc_auc_score
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import fbeta_score
+from sklearn.metrics import precision_recall_curve
+import matplotlib.pyplot as plt
+from sklearn.utils.fixes import signature 
+
+
+
+def get_result(predicted):
+    print ("F1_Score: ") 
+    sc=f1_score(y_validation, predicted, average='macro')
+    print(sc)
+    print ("accuracy: ") 
+    ac=accuracy_score(y_validation, predicted)
+    print(ac)
+    print ("Precision: ") 
+    pre=roc_auc_score(y_validation, predicted)
+    print(pre)
+    print ("recall: ") 
+    re=recall_score(y_validation, predicted)
+    print(re)
+    print ("FBeta: ")
+    fb=fbeta_score(y_validation,predicted, average='macro', beta=1.5)
+    print(fb)
+    return
+
+
+x_train = pd.read_csv("X_train.csv")
+y_train = pd.read_csv("Y_train.csv")
+x_test = pd.read_csv("X_test.csv")
+x_score = DecisionTreeClassifier(x_test)
+
+
+m = len(x_train)
+n = len(x_test)
+
+x = pd.concat([x_train, x_test])
+
+states = pd.get_dummies(x['state'])
+x = pd.concat([x, states], axis=1)
+
+x_train = x[0:m]
+x_test = x[m:m + n]
+
+
+train_percent = 0.66
+validate_percent = 0.33
+m = len(x_train)
+x_train = x_train[:int(train_percent * m)]
+x_validation = x_train[int(validate_percent * m):]
+y_train = y_train[:int(train_percent * m)]
+y_validation = y_train[int(validate_percent * m):]
+
+
+x_train = x_train.drop(['hour_b', 'total', 'customerAttr_b', 'zip', 'state'], axis=1)
+x_test = x_test.drop(['hour_b', 'total', 'customerAttr_b', 'zip', 'state'], axis=1)
+x_validation = x_validation.drop(['hour_b', 'total', 'customerAttr_b', 'zip', 'state'], axis=1)
+
+min_max_scaler = preprocessing.MinMaxScaler()
+x_train = min_max_scaler.fit_transform(x_train)
+x_test = min_max_scaler.fit_transform(x_test)
+x_validation = min_max_scaler.fit_transform(x_validation)
+
+
+sm = SMOTE(random_state=42)
+x_train, y_train = sm.fit_sample(x_train, y_train)
+
+
+dtc = DecisionTreeClassifier(max_depth=5)
+dtc.fit(x_train, y_train)
+y_predicted_validation_dtc = dtc.predict(x_validation)
+
+
+print ("- Decision tree -")
+get_result(y_predicted_validation_dtc)
+
+
+rfc = RandomForestClassifier()
+rfc = rfc.fit(x_train, y_train)
+y_predicted_validation_rfc = rfc.predict(x_validation)
+
+
+print ("- Random forest -")
+get_result(y_predicted_validation_rfc)
+
+
+nn = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+nn.fit(x_train, y_train)
+y_predicted_validation_nn = nn.predict(x_validation)
+
+
+print ("- Neural network -")
+get_result(y_predicted_validation_nn)
+
+
+lr = LogisticRegression()
+lr.fit(x_train, y_train)
+y_predicted_validation_lr = lr.predict(x_validation)
+
+
+print ("- Logistic regression -")
+get_result(y_predicted_validation_lr)
+
+
+bdt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), algorithm="SAMME", n_estimators=200)
+bdt.fit(x_train, y_train)
+y_predicted_validation_bdt = vc.predict(x_validation)
+
+
+print ("- AdaBoost -")
+get_result(y_predicted_validation_bdt)
+
+
+gb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)
+gb.fit(x_train, y_train)
+y_predicted_validation_gb = gb.predict(x_validation)
+
+
+print ("- Gradient Boosting -")
+get_result(y_predicted_validation_gb)
+
+
+bg = BaggingClassifier(base_estimator=DecisionTreeClassifier(), n_estimators=100, random_state=7)
+bg.fit(x_train, y_train)
+y_predicted_validation_bg = bg.predict(x_validation)
+
+
+print ("- Bagging  -")
+get_result(y_predicted_validation_bg)
+
+
+
+#AUC, recall, _ = precision_recall_curve(x_test, x_score)
+
+#step_kwargs = ({'step': 'post'}
+#               if 'step' in signature(plt.fill_between).parameters
+#               else {})
+#plt.step(recall, AUC, color='b', alpha=0.2,
+#         where='post')
+#plt.fill_between(recall, AUC, alpha=0.2, color='b', **step_kwargs)
+plt.plot(x_train,x_validation)
+plt.xlabel('Recall')
+plt.ylabel('AUC')
+plt.ylim([0.0, 1.0])
+plt.xlim([0.0, 1.0])
+#plt.title('2-class AUC-Recall curve: AP={0:0.2f}'.format(average_precision))
+
+plt.show()
